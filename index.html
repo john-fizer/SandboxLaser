@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobFlow Dashboard - Manufacturing Pipeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://unpkg.com/splitting@1.0.6/dist/splitting.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/splitting@1.0.6/dist/splitting.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            min-height: 100vh;
+        }
+        
+        .hero-bg {
+            background: linear-gradient(rgba(30, 41, 59, 0.8), rgba(30, 41, 59, 0.8)), 
+                        url('./resources/hero-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        
+        .job-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+        }
+        
+        .job-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .job-card.dragging {
+            opacity: 0.7;
+            transform: rotate(5deg);
+            cursor: grabbing;
+        }
+        
+        .column {
+            min-height: 600px;
+            transition: all 0.3s ease;
+        }
+        
+        .column.drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 2px dashed #3b82f6;
+        }
+        
+        .mode-toggle {
+            position: relative;
+            width: 200px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mode-toggle::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 98px;
+            height: 36px;
+            background: #3b82f6;
+            border-radius: 18px;
+            transition: transform 0.3s ease;
+        }
+        
+        .mode-toggle.mode2::before {
+            transform: translateX(98px);
+        }
+        
+        .mode-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: 500;
+            font-size: 14px;
+            z-index: 1;
+        }
+        
+        .mode-label.mode1 {
+            left: 20px;
+        }
+        
+        .mode-label.mode2 {
+            right: 20px;
+        }
+        
+        .overdue-badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .stats-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @media (max-width: 768px) {
+            .columns-container {
+                flex-direction: column;
+            }
+            
+            .column {
+                min-height: 400px;
+                margin-bottom: 1rem;
+            }
+            
+            .job-card {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="hero-bg">
+    <!-- Particle Background -->
+    <div id="particle-container" class="particle-container"></div>
+    
+    <!-- Header -->
+    <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-white" data-splitting>JobFlow Dashboard</h1>
+                    </div>
+                    <div class="hidden md:block">
+                        <p class="text-sm text-slate-300">Manufacturing Pipeline Tracker</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-6">
+                    <!-- Mode Toggle -->
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-slate-300 hidden sm:block">Mode:</span>
+                        <div class="mode-toggle" id="modeToggle">
+                            <span class="mode-label mode1">Operations</span>
+                            <span class="mode-label mode2">Supervisor</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats -->
+                    <div class="hidden md:flex items-center space-x-4">
+                        <div class="stats-card px-3 py-1 rounded-lg">
+                            <span class="text-xs text-slate-300">Total Jobs:</span>
+                            <span class="text-sm font-semibold text-white ml-1" id="totalJobs">0</span>
+                        </div>
+                        <div class="stats-card px-3 py-1 rounded-lg">
+                            <span class="text-xs text-slate-300">Overdue:</span>
+                            <span class="text-sm font-semibold text-red-400 ml-1" id="overdueJobs">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Job Statistics Chart -->
+        <div class="mb-8">
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+                <h2 class="text-lg font-semibold text-white mb-4">Job Distribution Overview</h2>
+                <div id="jobChart" style="height: 200px;"></div>
+            </div>
+        </div>
+        
+        <!-- Kanban Board -->
+        <div class="columns-container flex flex-col md:flex-row gap-6">
+            <!-- Queued Column -->
+            <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50" 
+                 data-status="queued">
+                <div class="p-4 border-b border-slate-700/50">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-blue-300">Queued</h3>
+                        <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full" id="queuedCount">0</span>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-1">Jobs waiting to start</p>
+                </div>
+                <div class="p-4 space-y-3 min-h-96" id="queuedJobs">
+                    <!-- Job cards will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Processing Column -->
+            <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50" 
+                 data-status="processing">
+                <div class="p-4 border-b border-slate-700/50">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-amber-300">Processing</h3>
+                        <span class="bg-amber-600 text-white text-xs px-2 py-1 rounded-full" id="processingCount">0</span>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-1">Jobs currently in progress</p>
+                </div>
+                <div class="p-4 space-y-3 min-h-96" id="processingJobs">
+                    <!-- Job cards will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Done Column -->
+            <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50" 
+                 data-status="done">
+                <div class="p-4 border-b border-slate-700/50">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-green-300">Done</h3>
+                        <span class="bg-green-600 text-white text-xs px-2 py-1 rounded-full" id="doneCount">0</span>
+                    </div>
+                    <p class="text-sm text-slate-400 mt-1">Completed jobs</p>
+                </div>
+                <div class="p-4 space-y-3 min-h-96" id="doneJobs">
+                    <!-- Job cards will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Job Detail Modal -->
+    <div id="jobModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" id="modalTitle">Job Details</h3>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="modalContent">
+                    <!-- Modal content will be inserted here -->
+                </div>
+                
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button id="editJob" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Edit Job
+                    </button>
+                    <button id="closeModalBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 py-8 border-t border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <p class="text-sm text-slate-400">© 2026 JobFlow Dashboard. Professional manufacturing pipeline management.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
