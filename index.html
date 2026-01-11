@@ -288,6 +288,487 @@
     <!-- Main Content (Hidden by default) -->
     <main id="mainContent"
         class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-opacity duration-500 opacity-0 pointer-events-none">
+
+        <!-- Supervisor Dashboard (Hidden by default) -->
+        <div id="supervisorDashboard" class="hidden mb-8 min-h-[500px]">
+            <!-- Content injected by JS -->
+        </div>
+
+        <!-- Process Dashboard (Standard View) -->
+        <div id="processDashboard">
+            <!-- Job Statistics Chart -->
+            <div class="mb-8">
+                <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-white" id="currentViewTitle">Job Distribution Overview
+                        </h2>
+                        <div class="flex space-x-2">
+                            <span id="currentProcessBadge"
+                                class="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">All
+                                Processes</span>
+                        </div>
+                    </div>
+                    <div id="jobChart" style="height: 200px;"></div>
+                </div>
+            </div>
+
+            <!-- Kanban Board -->
+            <div class="columns-container flex flex-col md:flex-row gap-6">
+                <!-- Received Column -->
+                <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50"
+                    data-status="received">
+                    <div class="p-4 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-purple-300">Received</h3>
+                            <span class="bg-purple-600 text-white text-xs px-2 py-1 rounded-full"
+                                id="receivedCount">0</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-1">Ready for this stage</p>
+                    </div>
+                    <div class="p-4 space-y-3 min-h-96" id="receivedJobs">
+                        <!-- Job cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Started Column -->
+                <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50"
+                    data-status="started">
+                    <div class="p-4 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-blue-300">Started</h3>
+                            <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full"
+                                id="startedCount">0</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-1">Work has begun</p>
+                    </div>
+                    <div class="p-4 space-y-3 min-h-96" id="startedJobs">
+                        <!-- Job cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Processing Column -->
+                <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50"
+                    data-status="processing">
+                    <div class="p-4 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-amber-300">Processing</h3>
+                            <span class="bg-amber-600 text-white text-xs px-2 py-1 rounded-full"
+                                id="processingCount">0</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-1">Currently in progress</p>
+                    </div>
+                    <div class="p-4 space-y-3 min-h-96" id="processingJobs">
+                        <!-- Job cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Finished Column -->
+                <div class="column flex-1 bg-slate-800/60 backdrop-blur-sm rounded-lg border border-slate-700/50"
+                    data-status="finished">
+                    <div class="p-4 border-b border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-green-300">Finished</h3>
+                            <span class="bg-green-600 text-white text-xs px-2 py-1 rounded-full"
+                                id="finishedCount">0</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-1">Completed this stage</p>
+                    </div>
+                    <div class="p-4 space-y-3 min-h-96" id="finishedJobs">
+                        <!-- Job cards will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Job Detail Modal -->
+    <div id="jobModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900" id="modalTitle">Job Details</h3>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div id="modalContent">
+                    <!-- Modal content will be inserted here -->
+                </div>
+
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button id="editJob"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Edit Job
+                    </button>
+                    <button id="closeModalBtn"
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Modal -->
+    <div id="maintenanceModal" class="fixed inset-0 modal-backdrop hidden z-[60] flex items-center justify-center p-4">
+        <div class="modal-content bg-white rounded-lg shadow-2xl max-w-md w-full">
+            <div class="p-6 bg-red-50 border-b border-red-100 rounded-t-lg">
+                <h3 class="text-xl font-bold text-red-700 flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                        </path>
+                    </svg>
+                    Report Maintenance Issue
+                </h3>
+            </div>
+            <div class="p-6">
+                <!-- AI Teaser -->
+                <div
+                    class="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100 shadow-sm">
+                    <div class="flex items-start space-x-3">
+                        <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-indigo-900">Try AI Troubleshooting</h4>
+                            <p class="text-xs text-indigo-700 mt-1">Before submitting a ticket, ask our AI assistant for
+                                a quick fix.</p>
+                            <button onclick="window.dashboard.openAiAssistant()"
+                                class="mt-2 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded transition-colors flex items-center justify-center">
+                                Launch mAInXance Assistant &rarr;
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="maintenanceForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Issue Description</label>
+                        <textarea id="maintDescription" rows="4"
+                            class="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                            placeholder="Describe the problem, machine number, etc..." required></textarea>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded text-xs text-yellow-800 border border-yellow-200">
+                        This will flag the supervisor dashboard immediately.
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button"
+                            onclick="document.getElementById('maintenanceModal').classList.add('hidden')"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Cancel</button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-medium shadow-lg">Submit
+                            Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Assistant Modal -->
+    <div id="aiAssistantModal" class="fixed inset-0 modal-backdrop hidden z-[70] flex items-center justify-center p-4">
+        <div
+            class="modal-content bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+            <div class="p-4 bg-slate-900 flex justify-between items-center text-white">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z">
+                        </path>
+                    </svg>
+                    <span class="font-bold text-lg">mAInXance Assistant</span>
+                </div>
+                <button onclick="document.getElementById('aiAssistantModal').classList.add('hidden')"
+                    class="text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex-1 bg-slate-100 relative">
+                <!-- iframe -->
+                <iframe src="https://john-fizer-mainxanceassistant.hf.space" class="w-full h-full border-0"
+                    title="AI Assistant"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 py-8 border-t border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <p class="text-sm text-slate-400">© 2026 JobFlow Dashboard. Professional manufacturing pipeline
+                    management.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+
+</html>            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+        }
+
+        .job-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .job-card.dragging {
+            opacity: 0.7;
+            transform: rotate(5deg);
+            cursor: grabbing;
+        }
+
+        .column {
+            min-height: 600px;
+            transition: all 0.3s ease;
+        }
+
+        .column.drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 2px dashed #3b82f6;
+        }
+
+        .mode-toggle {
+            position: relative;
+            width: 200px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-toggle::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 98px;
+            height: 36px;
+            background: #3b82f6;
+            border-radius: 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .mode-toggle.mode2::before {
+            transform: translateX(98px);
+        }
+
+        .mode-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: 500;
+            font-size: 14px;
+            z-index: 1;
+        }
+
+        .mode-label.mode1 {
+            left: 20px;
+        }
+
+        .mode-label.mode2 {
+            right: 20px;
+        }
+
+        .overdue-badge {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .stats-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        @media (max-width: 768px) {
+            .columns-container {
+                flex-direction: column;
+            }
+
+            .column {
+                min-height: 400px;
+                margin-bottom: 1rem;
+            }
+
+            .job-card {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body class="hero-bg">
+    <!-- Particle Background -->
+    <div id="particle-container" class="particle-container"></div>
+
+    <!-- Header -->
+    <header class="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-white" data-splitting>JobFlow Dashboard</h1>
+                    </div>
+                    <div class="hidden md:block">
+                        <p class="text-sm text-slate-300">Manufacturing Pipeline Tracker</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-6">
+                    <!-- Mode Toggle -->
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-slate-300 hidden sm:block">Mode:</span>
+                        <div class="mode-toggle" id="modeToggle">
+                            <span class="mode-label mode1">Operations</span>
+                            <span class="mode-label mode2">Supervisor</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="hidden md:flex items-center space-x-4">
+                        <div class="stats-card px-3 py-1 rounded-lg">
+                            <span class="text-xs text-slate-300">Total Jobs:</span>
+                            <span class="text-sm font-semibold text-white ml-1" id="totalJobs">0</span>
+                        </div>
+                        <div class="stats-card px-3 py-1 rounded-lg">
+                            <span class="text-xs text-slate-300">Overdue:</span>
+                            <span class="text-sm font-semibold text-red-400 ml-1" id="overdueJobs">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
+            <!-- Decorative background element -->
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500">
+            </div>
+
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-slate-800">JobFlow</h1>
+                <p class="text-slate-500 mt-2">Manufacturing Pipeline Control</p>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="operatorName" class="block text-sm font-medium text-slate-700 mb-1">Operator Name /
+                        ID</label>
+                    <input type="text" id="operatorName"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        placeholder="e.g. John Doe" required>
+                </div>
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                    <input type="text" id="username"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Enter your ID" required>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="password"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Enter password" required>
+                </div>
+
+                <div>
+                    <label for="role" class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                    <select id="role"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                        <option value="worker">Worker</option>
+                        <option value="supervisor">Supervisor/Lead</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit"
+                        class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                        Access Dashboard
+                    </button>
+                </div>
+
+                <p class="text-xs text-center text-slate-400 mt-4">
+                    Debug: Use 'admin' for full access
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Navigation Bar (Visible after login) -->
+    <nav id="processNav"
+        class="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/30 sticky top-16 z-40 transition-opacity duration-500 opacity-0 pointer-events-none hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-1 overflow-x-auto py-2 no-scrollbar" id="navTabs">
+                <!-- Tabs inserted via JS -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content (Hidden by default) -->
+    <main id="mainContent"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-opacity duration-500 opacity-0 pointer-events-none">
         <!-- Job Statistics Chart -->
         <div class="mb-8">
             <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
