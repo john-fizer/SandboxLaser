@@ -6,10 +6,28 @@ class AuthManager {
         this.currentUser = null;
         this.isAuthenticated = false;
 
+        // Default Users
+        this.defaultUsers = [
+            { id: 'admin', name: 'System Admin', username: 'admin', password: 'admin2026', role: 'admin', assignedProcess: null },
+            { id: 'supervisor', name: 'Shift Lead', username: 'supervisor', password: 'manage2026', role: 'supervisor', assignedProcess: null },
+            // Operators
+            { id: 'laser_op', name: 'Laser Operator', username: 'laser', password: 'work2026', role: 'worker', assignedProcess: 'laser' },
+            { id: 'brake_op', name: 'Brake Operator', username: 'brake', password: 'work2026', role: 'worker', assignedProcess: 'press_brake' },
+            { id: 'weld_op', name: 'Weld Operator', username: 'weld', password: 'work2026', role: 'worker', assignedProcess: 'welding' }
+        ];
+
         this.init();
     }
 
     init() {
+        // Initialize user DB if empty
+        if (!localStorage.getItem('jobflow-users')) {
+            localStorage.setItem('jobflow-users', JSON.stringify(this.defaultUsers));
+        }
+
+        // Initialize station label
+        this.updateStationLabel();
+
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
@@ -21,72 +39,118 @@ class AuthManager {
             try {
                 this.currentUser = JSON.parse(savedUser);
                 this.isAuthenticated = true;
-                // Auto-login if session exists
-                // this.showDashboard(); 
-                // Commented out auto-login for now to demonstrate login screen
             } catch (e) {
                 console.error('Invalid session', e);
             }
         }
     }
 
+    getUsers() {
+        return JSON.parse(localStorage.getItem('jobflow-users') || '[]');
+    }
+
+    saveUser(user) {
+        const users = this.getUsers();
+        users.push(user);
+        localStorage.setItem('jobflow-users', JSON.stringify(users));
+    }
+
     handleLogin(e) {
         e.preventDefault();
         const username = document.getElementById('username')?.value;
         const password = document.getElementById('password')?.value;
-        const role = document.getElementById('role')?.value;
-        const operatorName = document.getElementById('operatorName')?.value;
+        const role = document.getElementById('role')?.value; // Still useful for registration, but for login we lookup
 
-        if (!operatorName) {
-            alert('Please enter your Name or ID.');
-            return;
-        }
+        // For login, we primarily check username/password against our DB
+        const user = this.validateCredentials(username, password);
 
-        if (this.validateCredentials(username, password, role)) {
+        if (user) {
+            // Station Check
+            const currentStation = localStorage.getItem('jobflow-station-id');
+            if (currentStation) {
+                // If station is set, user must be admin, supervisor, or assigned to this process
+                if (user.role !== 'admin' && user.role !== 'supervisor' && user.assignedProcess !== currentStation) {
+                    alert(`ACCESS DENIED: This terminal is configured as the ${currentStation.toUpperCase()} Station.\nYou are assigned to: ${user.assignedProcess || 'None'}`);
+                    return;
+                }
+            }
+
             this.currentUser = {
-                id: username.toLowerCase().replace(/\s/g, '_'),
-                name: operatorName, // Use the proper name entered
-                username: username,
-                role: role,
+                ...user,
                 loginTime: new Date().toISOString()
             };
 
             this.isAuthenticated = true;
             localStorage.setItem('jobflow-user', JSON.stringify(this.currentUser));
-
             this.showDashboard();
         } else {
-            alert('Invalid credentials! Please check your username, password, and role.');
+            alert('Invalid credentials! Please check your username and password.');
         }
     }
 
-    validateCredentials(username, password, role) {
-        if (!username || !password || !role) return false;
+    // Admin Utility
+    setStation(processId) {
+        if (!processId) {
+            localStorage.removeItem('jobflow-station-id');
+            console.log('Station restriction removed.');
+            alert('Station restriction removed.');
+        } else {
+            localStorage.setItem('jobflow-station-id', processId);
+            console.log(`Station set to: ${processId}`);
+            alert(`This terminal is now locked to: ${processId}`);
+        }
+        // Update UI label
+        this.updateStationLabel();
+    }
 
-        // Hardcoded passwords for this prototype
-        const credentials = {
-            'admin': 'admin2026',
-            'supervisor': 'manage2026',
-            'worker': 'work2026'
+    updateStationLabel() {
+        const stationId = localStorage.getItem('jobflow-station-id');
+        const label = document.getElementById('stationLabel');
+        if (label) {
+            if (stationId) {
+                label.textContent = `Terminal: ${stationId.toUpperCase()}`;
+                label.classList.remove('hidden');
+            } else {
+                label.classList.add('hidden');
+            }
+        }
+    }
+
+    validateCredentials(username, password) {
+        if (!username || !password) return null;
+        const users = this.getUsers();
+        return users.find(u => u.username === username && u.password === password);
+    }
+
+    registerUser(name, username, password, role, assignedProcess) {
+        const users = this.getUsers();
+        if (users.find(u => u.username === username)) {
+            return { success: false, message: 'Username already exists' };
+        }
+
+        const newUser = {
+            id: username.toLowerCase().replace(/\s/g, '_'),
+            name,
+            username,
+            password,
+            role, // 'admin', 'supervisor', 'worker'
+            assignedProcess // 'laser', 'welding', etc. or null
         };
 
-        return credentials[role] === password;
+        this.saveUser(newUser);
+        return { success: true, message: 'User registered successfully' };
     }
 
     showDashboard() {
         const loginModal = document.getElementById('loginModal');
         const mainContent = document.getElementById('mainContent');
 
-        // Update UI based on role
+        // Body class for styling
+        document.body.className = 'hero-bg'; // Reset
         if (this.currentUser.role === 'supervisor' || this.currentUser.role === 'admin') {
             document.body.classList.add('supervisor-mode');
-            // If toggle exists (checking for backward compatibility during refactor)
-            const toggle = document.getElementById('modeToggle');
-            if (toggle) toggle.classList.add('mode2');
         } else {
-            document.body.classList.remove('supervisor-mode');
-            const toggle = document.getElementById('modeToggle');
-            if (toggle) toggle.classList.remove('mode2');
+            document.body.classList.add('operator-mode');
         }
 
         // Animate exit
@@ -111,8 +175,8 @@ class AuthManager {
             });
         }
 
-        // Initialize dashboard data
-        this.dashboard.renderAll();
+        // Initialize dashboard data with permissions
+        this.dashboard.initializeView(this.currentUser);
     }
 
     logout() {
@@ -123,6 +187,52 @@ class AuthManager {
     }
 }
 
+
+class MaintenanceManager {
+    constructor(dashboard) {
+        this.dashboard = dashboard;
+        this.tickets = [];
+        this.init();
+    }
+
+    init() {
+        const saved = localStorage.getItem('jobflow-maintenance');
+        if (saved) this.tickets = JSON.parse(saved);
+    }
+
+    createTicket(processId, description, reporter) {
+        const ticket = {
+            id: 'maint-' + Date.now(),
+            processId,
+            description,
+            reporter,
+            status: 'open', // open, resolved
+            timestamp: new Date().toISOString()
+        };
+        this.tickets.push(ticket);
+        this.save();
+        return ticket;
+    }
+
+    resolveTicket(ticketId, resolver) {
+        const ticket = this.tickets.find(t => t.id === ticketId);
+        if (ticket) {
+            ticket.status = 'resolved';
+            ticket.resolvedBy = resolver;
+            ticket.resolvedAt = new Date().toISOString();
+            this.save();
+        }
+    }
+
+    save() {
+        localStorage.setItem('jobflow-maintenance', JSON.stringify(this.tickets));
+        this.dashboard.renderAll(); // Refresh UI to show flags
+    }
+
+    getOpenTickets(processId) {
+        return this.tickets.filter(t => t.status === 'open' && (!processId || t.processId === processId));
+    }
+}
 
 class JobFlowDashboard {
     constructor() {
@@ -139,69 +249,247 @@ class JobFlowDashboard {
         this.currentProcess = 'laser';
         this.draggedJob = null;
         this.chart = null;
+        this.charts = {}; // Store multiple charts for supervisor view
         this.auth = new AuthManager(this);
+        this.maintenance = new MaintenanceManager(this);
 
         this.init();
     }
 
-    init() {
-        this.loadMockData();
-        this.setupEventListeners();
-        this.setupNavigation();
-        this.setupDragAndDrop();
-        this.setupModal();
-        this.setupParticles();
-        this.setupChart();
-        // this.renderAll(); // Called by AuthManager
-        this.animateHeader();
+    initializeView(user) {
+        // Clear existing UI state
+        document.getElementById('navTabs').innerHTML = '';
+        document.getElementById('supervisorDashboard')?.classList.add('hidden');
+        document.getElementById('processDashboard')?.classList.add('hidden');
+
+        if (user.role === 'admin' || user.role === 'supervisor') {
+            this.setupSupervisorNavigation();
+            this.switchProcess('overview'); // Default to bird's eye view
+        } else {
+            // Operator restricted view
+            if (user.assignedProcess && this.processes.find(p => p.id === user.assignedProcess)) {
+                this.currentProcess = user.assignedProcess;
+                this.switchProcess(this.currentProcess);
+                // Hide nav for single-process operators
+                document.getElementById('processNav').classList.add('hidden');
+                document.getElementById('processDashboard').classList.remove('hidden');
+
+                // Show maintenance button for operator
+                this.addMaintenanceButton();
+            } else {
+                alert('Account has no assigned process. Please contact supervisor.');
+                this.auth.logout();
+            }
+        }
+
+        // Show main content container
+        document.getElementById('mainContent').classList.remove('opacity-0', 'pointer-events-none');
+        document.getElementById('mainContent').style.opacity = '1';
     }
 
-    setupNavigation() {
+    setupSupervisorNavigation() {
         const navContainer = document.getElementById('navTabs');
-        navContainer.innerHTML = '';
+        document.getElementById('processNav').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+
+        // Add "Overview" tab
+        this.addNavTab(navContainer, 'overview', 'Overview');
 
         this.processes.forEach(process => {
-            const btn = document.createElement('button');
-            btn.className = `whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${this.currentProcess === process.id
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`;
-            btn.textContent = process.name;
-            btn.onclick = () => this.switchProcess(process.id);
-            navContainer.appendChild(btn);
+            this.addNavTab(navContainer, process.id, process.name);
         });
+    }
 
-        // Show nav if authenticated
-        if (this.auth.isAuthenticated) {
-            document.getElementById('processNav').classList.remove('hidden', 'opacity-0');
-            document.getElementById('processNav').classList.remove('pointer-events-none');
-        }
+    addNavTab(container, id, name) {
+        const btn = document.createElement('button');
+        btn.dataset.id = id;
+        btn.className = `whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${this.currentProcess === id
+            ? 'bg-blue-600 text-white shadow-lg'
+            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`;
+        btn.textContent = name;
+        btn.onclick = () => this.switchProcess(id);
+        container.appendChild(btn);
+    }
+
+    addMaintenanceButton() {
+        // Check if button already exists
+        if (document.getElementById('reportIssueBtn')) return;
+
+        const container = document.querySelector('.hero-bg'); // Append to body/main wrapper or header
+        const btn = document.createElement('button');
+        btn.id = 'reportIssueBtn';
+        btn.className = 'fixed bottom-6 right-6 z-50 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-lg flex items-center space-x-2 transition-transform hover:scale-105';
+        btn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <span>Report Issue</span>
+        `;
+        btn.onclick = () => this.showMaintenanceModal();
+        document.body.appendChild(btn);
     }
 
     switchProcess(processId) {
         this.currentProcess = processId;
 
-        // Update UI
-        this.setupNavigation(); // Re-render to update active state
-
-        document.getElementById('currentViewTitle').textContent = `${this.getProcessName(processId)} Overview`;
-        document.getElementById('currentProcessBadge').textContent = this.getProcessName(processId);
-
-        // Animate transition
-        anime({
-            targets: '.column',
-            opacity: [0, 1],
-            translateY: [20, 0],
-            delay: anime.stagger(100),
-            duration: 400,
-            easing: 'easeOutQuad'
+        // Update Nav UI
+        document.querySelectorAll('#navTabs button').forEach(btn => {
+            if (btn.dataset.id === processId) {
+                btn.className = 'whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all bg-blue-600 text-white shadow-lg';
+            } else {
+                btn.className = 'whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white';
+            }
         });
 
-        this.renderAll();
+        const supervisorDash = document.getElementById('supervisorDashboard');
+        const processDash = document.getElementById('processDashboard');
+
+        if (processId === 'overview') {
+            supervisorDash.classList.remove('hidden');
+            processDash.classList.add('hidden');
+            document.getElementById('currentViewTitle').textContent = 'Plant Overview';
+            document.getElementById('currentProcessBadge').textContent = 'All Processes';
+            this.renderSupervisorDashboard();
+        } else {
+            supervisorDash.classList.add('hidden');
+            processDash.classList.remove('hidden');
+            document.getElementById('currentViewTitle').textContent = `${this.getProcessName(processId)} Overview`;
+            document.getElementById('currentProcessBadge').textContent = this.getProcessName(processId);
+
+            // Re-setup drag/drop for this view? It's already bound to columns, but we need to refresh data
+            this.renderAll();
+        }
     }
 
     getProcessName(id) {
         return this.processes.find(p => p.id === id)?.name || id;
+    }
+
+    renderSupervisorDashboard() {
+        const container = document.getElementById('supervisorDashboard');
+        if (!container) return;
+
+        container.innerHTML = ''; // Clear
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
+
+        this.processes.forEach(process => {
+            const jobs = this.jobs.filter(j => j.process === process.id);
+            const openTickets = this.maintenance.getOpenTickets(process.id);
+            const hasIssues = openTickets.length > 0;
+
+            const card = document.createElement('div');
+            card.className = `bg-slate-800/80 backdrop-blur rounded-xl p-4 border ${hasIssues ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-slate-700'} hover:border-slate-500 transition-all cursor-pointer relative group`;
+
+            // Click card to enter process view, unless clicking the issue badge
+            card.onclick = (e) => {
+                if (!e.target.closest('.issue-badge')) {
+                    this.switchProcess(process.id);
+                }
+            };
+
+            // Calculate stats
+            const stats = {
+                total: jobs.length,
+                overdue: jobs.filter(j => new Date(j.due) < new Date()).length
+            };
+
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-bold text-white text-lg">${process.name}</h3>
+                        <p class="text-xs text-slate-400">${stats.total} Active Jobs</p>
+                    </div>
+                    ${hasIssues ? `
+                        <div class="issue-badge animate-pulse bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded-full flex items-center cursor-pointer transition-colors z-10"
+                             onclick="window.dashboard.showMaintenanceTickets('${process.id}')">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            ${openTickets.length} Issue(s)
+                        </div>` : ''}
+                </div>
+                
+                <!-- Mini Chart Container -->
+                <div id="chart-mini-${process.id}" style="height: 120px;" class="mb-2"></div>
+                
+                <div class="flex justify-between items-center text-xs text-slate-400 border-t border-slate-700/50 pt-2">
+                    <span>${stats.overdue > 0 ? `<span class="text-red-400">${stats.overdue} Overdue</span>` : 'On Schedule'}</span>
+                    <span class="text-blue-400 hover:underline">View Details &rarr;</span>
+                </div>
+            `;
+
+            grid.appendChild(card);
+        });
+
+        container.appendChild(grid);
+
+        // Initialize mini charts after DOM insertion
+        requestAnimationFrame(() => {
+            this.processes.forEach(process => {
+                this.renderMiniChart(process.id);
+            });
+        });
+    }
+
+    showMaintenanceTickets(processId) {
+        const tickets = this.maintenance.getOpenTickets(processId);
+        if (tickets.length === 0) return;
+
+        // Reuse jobModal for simplicity or create a simpler prompt
+        // Let's us a simple confirmation loop for now or a custom alert
+        // A simple prompt approach for MVP:
+
+        let msg = `Maintenance Issues for ${this.getProcessName(processId)}:\n\n`;
+        tickets.forEach((t, i) => {
+            msg += `${i + 1}. [${new Date(t.timestamp).toLocaleTimeString()}] ${t.reporter}: ${t.description}\n`;
+        });
+        msg += `\nEnter ticket number (1-${tickets.length}) to resolve, or Cancel.`;
+
+        const reply = prompt(msg);
+        if (reply) {
+            const index = parseInt(reply) - 1;
+            if (index >= 0 && index < tickets.length) {
+                this.maintenance.resolveTicket(tickets[index].id, this.auth.currentUser.name);
+                alert('Ticket resolved.');
+                this.renderAll(); // Re-render supervisor view to update badge
+            }
+        }
+    }
+
+    renderMiniChart(processId) {
+        const dom = document.getElementById(`chart-mini-${processId}`);
+        if (!dom || !window.echarts) return;
+
+        const jobs = this.jobs.filter(j => j.process === processId);
+        const counts = {
+            received: jobs.filter(j => j.status === 'received').length,
+            started: jobs.filter(j => j.status === 'started').length,
+            processing: jobs.filter(j => j.status === 'processing').length,
+            finished: jobs.filter(j => j.status === 'finished').length
+        };
+
+        // Don't init if empty to save resources? No, show empty ring
+        const chart = echarts.init(dom);
+        const option = {
+            color: ['#a855f7', '#3b82f6', '#f59e0b', '#10b981'],
+            series: [{
+                type: 'pie',
+                radius: ['60%', '80%'],
+                avoidLabelOverlap: false,
+                label: { show: false },
+                emphasis: { label: { show: false } },
+                data: [
+                    { value: counts.received, name: 'Received' },
+                    { value: counts.started, name: 'Started' },
+                    { value: counts.processing, name: 'Processing' },
+                    { value: counts.finished, name: 'Finished' }
+                ]
+            }]
+        };
+
+        if (jobs.length === 0) {
+            option.series[0].data = [{ value: 0, name: 'Empty', itemStyle: { color: '#334155' } }];
+        }
+
+        chart.setOption(option);
     }
 
     loadMockData() {
@@ -239,17 +527,112 @@ class JobFlowDashboard {
             ...job,
             jobNumber: `JOB-${job.id.split('-')[1]}`,
             createdAt: new Date().toISOString(),
-            logs: []
         }));
     }
 
     setupEventListeners() {
-        // Modal & other listeners remain same
+        // Modal & other listeners
         document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
         document.getElementById('closeModalBtn').addEventListener('click', () => this.closeModal());
         document.getElementById('jobModal').addEventListener('click', (e) => {
             if (e.target.id === 'jobModal') this.closeModal();
         });
+
+        // Maintenance Form
+        const maintForm = document.getElementById('maintenanceForm');
+        if (maintForm) {
+            maintForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const desc = document.getElementById('maintDescription').value;
+                if (!desc) return;
+
+                this.maintenance.createTicket(
+                    this.currentProcess,
+                    desc,
+                    this.auth.currentUser.name
+                );
+
+                document.getElementById('maintDescription').value = '';
+                document.getElementById('maintenanceModal').classList.add('hidden');
+                alert('Report submitted to supervisor.');
+            });
+        }
+    }
+
+    showMaintenanceModal() {
+        document.getElementById('maintenanceModal').classList.remove('hidden');
+    }
+
+    openAiAssistant() {
+        document.getElementById('aiAssistantModal').classList.remove('hidden');
+    }
+
+    initializeView(user) {
+        // Clear existing UI state
+        document.getElementById('navTabs').innerHTML = '';
+        document.getElementById('supervisorDashboard')?.classList.add('hidden');
+        document.getElementById('processDashboard')?.classList.add('hidden');
+
+        // Cleanup buttons
+        document.getElementById('reportIssueBtn')?.remove();
+        document.getElementById('addUserBtn')?.remove();
+
+        if (user.role === 'admin' || user.role === 'supervisor') {
+            this.setupSupervisorNavigation();
+            this.switchProcess('overview'); // Default to bird's eye view
+
+            // Add User Management Button if Admin
+            if (user.role === 'admin') {
+                this.addManageUsersButton();
+            }
+        } else {
+            // Operator restricted view
+            if (user.assignedProcess && this.processes.find(p => p.id === user.assignedProcess)) {
+                this.currentProcess = user.assignedProcess;
+                this.switchProcess(this.currentProcess);
+                // Hide nav for single-process operators
+                document.getElementById('processNav').classList.add('hidden');
+                document.getElementById('processDashboard').classList.remove('hidden');
+
+                // Show maintenance button for operator
+                this.addMaintenanceButton();
+            } else {
+                alert('Account has no assigned process. Please contact supervisor.');
+                this.auth.logout();
+            }
+        }
+
+        // Show main content container
+        document.getElementById('mainContent').classList.remove('opacity-0', 'pointer-events-none');
+        document.getElementById('mainContent').style.opacity = '1';
+    }
+
+    addManageUsersButton() {
+        const container = document.querySelector('header .flex.items-center.space-x-6');
+        if (!container) return;
+
+        const div = document.createElement('div');
+        div.id = 'addUserBtn';
+        div.innerHTML = `
+            <button onclick="window.dashboard.showUserModal()" class="text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors">
+                + Users
+            </button>
+         `;
+        container.insertBefore(div, container.firstChild);
+    }
+
+    showUserModal() {
+        const userInput = prompt("Enter new User details in format: Name,Username,Password,Role,Process\nExample: John Doe,john,pass123,worker,laser\nRoles: admin, supervisor, worker\nProcesses: laser, laser_unload, press_brake, welding, powder_paint, shipping");
+
+        if (userInput) {
+            const [name, username, password, role, process] = userInput.split(',').map(s => s.trim());
+            if (name && username && password && role) {
+                const result = this.auth.registerUser(name, username, password, role, process || null);
+                alert(result.message);
+            } else {
+                alert("Invalid format.");
+            }
+        }
     }
 
     setupDragAndDrop() {
